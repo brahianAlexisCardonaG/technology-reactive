@@ -1,0 +1,68 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.4.5'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.technology'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-data-r2dbc'
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+	compileOnly 'org.projectlombok:lombok'
+	runtimeOnly 'org.postgresql:postgresql'
+	runtimeOnly 'org.postgresql:r2dbc-postgresql'
+	annotationProcessor 'org.projectlombok:lombok'
+
+	testImplementation 'io.projectreactor:reactor-test'
+
+	implementation 'org.mapstruct:mapstruct:1.5.3.Final'
+	annotationProcessor 'org.mapstruct:mapstruct-processor:1.5.3.Final'
+
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:2.1.0'
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
+	testImplementation 'org.mockito:mockito-junit-jupiter:5.4.0'
+
+	testImplementation 'org.mapstruct:mapstruct:1.5.3.Final'
+	testAnnotationProcessor 'org.mapstruct:mapstruct-processor:1.5.3.Final'
+
+	//security
+	implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
+
+	// Spring Security OAuth2 JWT
+	implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+
+	filter {
+		includeTestsMatching "com.technology.project.domain.usecase.*"
+		includeTestsMatching "com.technology.project.infraestructure.adapters.persistenceadapter.*"
+		includeTestsMatching "com.technology.project.infraestructure.entrypoints.technology.handler.*"
+		includeTestsMatching "com.technology.project.infraestructure.entrypoints.technologycapability.handler.*"
+	}
+}

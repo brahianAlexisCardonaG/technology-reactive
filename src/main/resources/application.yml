@@ -1,0 +1,25 @@
+server:
+  port: 8081
+spring:
+  application:
+    name: technology
+  r2dbc:
+      url: r2dbc:postgresql://localhost:5432/technology
+      username: postgres
+      password: root
+  sql:
+    init:
+      mode:
+      schema-locations: classpath:schema.sql
+  logging:
+    level:
+      org.springframework.web.reactive.function.server: DEBUG
+application:
+  security:
+    jwt:
+      secret-key: m2yrnAnikqppG3cqmTOGXExVuVlLxOvaN5q2Gqwel/aigX+wgP68HvbE1ypcpUBv
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
