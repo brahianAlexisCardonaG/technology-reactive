@@ -11,11 +11,9 @@ import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 public class TechnologyUseCase implements TechnologyServicePort, TechnologyCapabilityServicePort {
@@ -24,32 +22,20 @@ public class TechnologyUseCase implements TechnologyServicePort, TechnologyCapab
     private final ValidationTechnologyCapacity validationTechnologyCapacity;
 
     @Override
-    public Flux<Technology> save(Flux<Technology> technology) {
+    public Mono<Technology> save(Technology technology) {
 
-        return technology
-                .distinct(Technology::getName)
-                    .flatMap(tech ->
-                        technologyPersistencePort.findByName(tech.getName())
-                                .filter(exists -> !exists)
-                                .switchIfEmpty(Mono.error(new BusinessException(TechnicalMessage.TECHNOLOGY_ALREADY_EXISTS)))
-                                .flatMap(ignored ->
-                                        technologyPersistencePort.save(Flux.just(tech))
-                                                .next()
-                                )
-                                .flux()
-                );
+        return technologyPersistencePort.existByName(technology.getName())
+                .flatMap(exists -> validationExist(exists, TechnicalMessage.TECHNOLOGY_ALREADY_EXISTS))
+                .then(Mono.defer(()->validationTechnologyCapacity.validateLengthWords(technology)))
+                .then(Mono.defer(()->technologyPersistencePort.save(technology)));
     }
 
     @Override
     public Mono<Void> saveCapabilityTechnologies(Long capabilityId, List<Long> technologyIds) {
         return Flux.fromIterable(technologyIds)
                 .flatMap(id -> technologyPersistencePort.existsById(id)
-                        .flatMap(exists -> {
-                            if (!exists) {
-                                return Mono.error(new BusinessException(TechnicalMessage.TECHNOLOGY_NOT_EXISTS));
-                            }
-                            return Mono.just(id);
-                        })
+                        .flatMap(exists -> validationExist(!exists, TechnicalMessage.TECHNOLOGY_NOT_EXISTS)
+                                .thenReturn(id))
                 )
                 .collectList()
                 .flatMap(validTechnologyIds ->
@@ -71,32 +57,32 @@ public class TechnologyUseCase implements TechnologyServicePort, TechnologyCapab
     @Override
     public Mono<List<Technology>> findTechnologiesByCapability(Long capabilityId) {
         return technologyPersistencePort.existsCapabilityById(capabilityId)
-                .flatMap(exists -> {
-                    if (!exists) {
-                        return Mono.error(new BusinessException(TechnicalMessage.CAPABILITIES_NOT_EXISTS));
-                    }
-                    return technologyPersistencePort.findTechnologiesListByCapability(capabilityId);
-                });
+                .flatMap(exists -> validationExist(!exists, TechnicalMessage.CAPABILITIES_NOT_EXISTS))
+                .then(Mono.defer(()->technologyPersistencePort.findTechnologiesListByCapability(capabilityId)));
     }
 
     @Override
-    public Flux<Technology> getTechnologiesByIds(List<Long> technologyIds) {
+    public Mono<List<Technology>> getTechnologiesByIds(List<Long> technologyIds) {
         return technologyPersistencePort.findByIds(technologyIds)
-                .defaultIfEmpty(new Technology())
                 .switchIfEmpty(Mono.error(new BusinessException(TechnicalMessage.TECHNOLOGY_NOT_EXISTS)));
     }
 
     @Override
     public Mono<Void> deleteCapabilityTechnologies(List<Long> technologyIds) {
         return technologyPersistencePort.findCapabilitiesByTechnologiesIds(technologyIds)
-                .collect(Collectors.toSet())
-                .flatMap(capabilityIds -> {
-                    if (capabilityIds.size() > 1) {
-                        return Mono.error(new BusinessException(TechnicalMessage.CAPABILITIES_TECHNOLOGIES_MORE_ONE_RELATE));
-                    }
-                    return technologyPersistencePort.deleteCapabilitiesTechnologies(technologyIds)
-                            .then(technologyPersistencePort.deleteTechnologies(technologyIds));
-                });
+                .map(HashSet::new)
+                .flatMap(capabilityIds ->
+                        validationExist(capabilityIds.size() > 1, TechnicalMessage.CAPABILITIES_TECHNOLOGIES_MORE_ONE_RELATE)
+                                .then(Mono.defer(() -> technologyPersistencePort.deleteCapabilitiesTechnologies(technologyIds)))
+                                .then(Mono.defer(() -> technologyPersistencePort.deleteTechnologies(technologyIds)))
+                );
+    }
+
+    private Mono<Void> validationExist(Boolean condition, TechnicalMessage technicalMessage) {
+        if (condition) {
+            return Mono.error(new BusinessException(technicalMessage));
+        }
+        return Mono.empty();
     }
 
 }

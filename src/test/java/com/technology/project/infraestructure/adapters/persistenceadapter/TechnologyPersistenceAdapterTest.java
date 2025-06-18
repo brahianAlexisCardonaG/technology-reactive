@@ -53,7 +53,7 @@ public class TechnologyPersistenceAdapterTest {
         when(technologyRespository.findByName(nombre)).thenReturn(Mono.just(techEntity));
         when(technologyEntityMapper.toModel(techEntity)).thenReturn(techModel);
 
-        Mono<Boolean> result = adapter.findByName(nombre);
+        Mono<Boolean> result = adapter.existByName(nombre);
 
         StepVerifier.create(result)
                 .expectNext(true)
@@ -66,7 +66,7 @@ public class TechnologyPersistenceAdapterTest {
 
         when(technologyRespository.findByName(nombre)).thenReturn(Mono.empty());
 
-        Mono<Boolean> result = adapter.findByName(nombre);
+        Mono<Boolean> result = adapter.existByName(nombre);
 
         StepVerifier.create(result)
                 .expectNext(false)
@@ -217,34 +217,36 @@ public class TechnologyPersistenceAdapterTest {
         when(technologyEntityMapper.toModel(techEntity1)).thenReturn(techModel1);
         when(technologyEntityMapper.toModel(techEntity2)).thenReturn(techModel2);
 
-        Flux<Technology> result = adapter.findByIds(techIds);
+        Mono<List<Technology>> result = adapter.findByIds(techIds);
 
         StepVerifier.create(result)
-                .expectNext(techModel1, techModel2)
+                .expectNextMatches(list -> list.size() == 2 &&
+                        list.contains(techModel1) &&
+                        list.contains(techModel2))
                 .verifyComplete();
     }
 
     @Test
     public void testSave() {
-        Technology tech1 = new Technology();
-        Technology tech2 = new Technology();
-        TechnologyEntity entity1 = new TechnologyEntity();
-        TechnologyEntity entity2 = new TechnologyEntity();
+        Technology tech = new Technology();
+        TechnologyEntity entity = new TechnologyEntity();
 
-        when(technologyEntityMapper.toEntity(tech1)).thenReturn(entity1);
-        when(technologyEntityMapper.toEntity(tech2)).thenReturn(entity2);
+        // Configura los mapeos: modelo a entidad y entidad a modelo.
+        when(technologyEntityMapper.toEntity(tech)).thenReturn(entity);
+        when(technologyRespository.save(entity)).thenReturn(Mono.just(entity));
+        when(technologyEntityMapper.toModel(entity)).thenReturn(tech);
 
-        when(technologyRespository.saveAll(Arrays.asList(entity1, entity2)))
-                .thenReturn(Flux.just(entity1, entity2));
+        Mono<Technology> result = adapter.save(tech);
 
-        when(technologyEntityMapper.toModel(entity1)).thenReturn(tech1);
-        when(technologyEntityMapper.toModel(entity2)).thenReturn(tech2);
-
-        Flux<Technology> result = adapter.save(Flux.just(tech1, tech2));
-
+        // Assert: verifica que se emita el modelo esperado y se complete el Mono.
         StepVerifier.create(result)
-                .expectNext(tech1, tech2)
+                .expectNext(tech)
                 .verifyComplete();
+
+        // Verifica que se llamen los métodos de mapping y del repositorio.
+        verify(technologyEntityMapper).toEntity(tech);
+        verify(technologyRespository).save(entity);
+        verify(technologyEntityMapper).toModel(entity);
     }
 
     @Test

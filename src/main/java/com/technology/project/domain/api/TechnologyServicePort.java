@@ -7,6 +7,6 @@ import reactor.core.publisher.Mono;
 import java.util.List;
 
 public interface TechnologyServicePort {
-    Flux<Technology> save(Flux<Technology> tecnologic);
-    Flux<Technology> getTechnologiesByIds(List<Long> technologyIds);
+    Mono<Technology> save(Technology technology);
+    Mono<List<Technology>> getTechnologiesByIds(List<Long> technologyIds);
 }

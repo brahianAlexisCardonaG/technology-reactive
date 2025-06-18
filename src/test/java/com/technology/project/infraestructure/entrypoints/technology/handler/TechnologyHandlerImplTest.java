@@ -20,7 +20,6 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.server.RequestPredicates;
 import org.springframework.web.reactive.function.server.RouterFunctions;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
@@ -67,11 +66,9 @@ public class TechnologyHandlerImplTest {
 
         // Simulate validations
         when(technologyValidationDto.validateNoDuplicateNames(any()))
-                .thenReturn(Mono.just(List.of(dto)));
+                .thenReturn(Mono.empty());
         when(technologyValidationDto.validateFieldNotNullOrBlank(any()))
-                .thenReturn(Mono.just(dto));
-        when(technologyValidationDto.validateLengthWords(any()))
-                .thenReturn(Mono.just(dto));
+                .thenReturn(Mono.empty());
 
         // Map to domain
         var techDomain = new Technology();
@@ -79,8 +76,8 @@ public class TechnologyHandlerImplTest {
                 .thenReturn(techDomain);
 
         // Service saves and echoes back
-        when(technologyServicePort.save(any(Flux.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(technologyServicePort.save(any(Technology.class)))
+                .thenReturn(Mono.just(techDomain));
 
         // Map to response DTO
         TechnologyResponse techResponse = new TechnologyResponse();
@@ -113,7 +110,7 @@ public class TechnologyHandlerImplTest {
         List<Long> ids = List.of(10L, 20L);
         var techDomain = new Technology();
         when(technologyServicePort.getTechnologiesByIds(ids))
-                .thenReturn(Flux.just(techDomain));
+                .thenReturn(Mono.just(List.of(techDomain)));
 
         TechnologyResponse techResponse = new TechnologyResponse();
         techResponse.setName("Spring");

@@ -2,6 +2,8 @@ package com.technology.project.domain.usecase.util;
 
 import com.technology.project.domain.enums.TechnicalMessage;
 import com.technology.project.domain.exception.BusinessException;
+import com.technology.project.domain.model.Technology;
+import com.technology.project.infraestructure.entrypoints.technology.dto.TechnologyDto;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -29,4 +31,15 @@ public class ValidationTechnologyCapacity {
         }
         return Mono.empty();
     }
+
+    public Mono<Void> validateLengthWords(Technology technology) {
+        if (technology.getName().length() > 50) {
+            return Mono.error(new BusinessException(TechnicalMessage.NAME_TOO_LONG));
+        }
+        if (technology.getDescription().length() > 90) {
+            return Mono.error(new BusinessException(TechnicalMessage.DESCRIPTION_TOO_LONG));
+        }
+        return Mono.empty();
+    }
+
 }

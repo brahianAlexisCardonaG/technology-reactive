@@ -19,7 +19,7 @@ public class TechnologyPersistenceAdapter implements TechnologyPersistencePort {
     private final CapabilityTechnologyRepository capabilityTechnologyRepository;
 
     @Override
-    public Mono<Boolean> findByName(String name) {
+    public Mono<Boolean> existByName(String name) {
         return technologyRespository.findByName(name)
                 .map(technologyEntityMapper::toModel)
                 .map(tech -> true)  // Si encuentra el usuario, devuelve true
@@ -69,14 +69,17 @@ public class TechnologyPersistenceAdapter implements TechnologyPersistencePort {
     }
 
     @Override
-    public Flux<Technology> findByIds(List<Long> technologyIds) {
+    public Mono<List<Technology>> findByIds(List<Long> technologyIds) {
         return technologyRespository.findAllById(technologyIds)
-                .map(technologyEntityMapper::toModel);
+                .map(technologyEntityMapper::toModel)
+                .collectList();
     }
 
     @Override
-    public Flux<Long> findCapabilitiesByTechnologiesIds(List<Long> technologyIds) {
-        return capabilityTechnologyRepository.findCapabilityIdsByTechnologyIds(technologyIds);
+    public Mono<List<Long>> findCapabilitiesByTechnologiesIds(List<Long> technologyIds) {
+        return capabilityTechnologyRepository
+                .findCapabilityIdsByTechnologyIds(technologyIds)
+                .collectList();
     }
 
     @Override
@@ -98,11 +101,8 @@ public class TechnologyPersistenceAdapter implements TechnologyPersistencePort {
 
 
     @Override
-    public Flux<Technology> save(Flux<Technology> technology) {
-        return technology
-                .map(technologyEntityMapper::toEntity)
-                .collectList()
-                .flatMapMany(technologyRespository::saveAll)
+    public Mono<Technology> save(Technology technology) {
+        return technologyRespository.save(technologyEntityMapper.toEntity(technology))
                 .map(technologyEntityMapper::toModel);
     }
 }

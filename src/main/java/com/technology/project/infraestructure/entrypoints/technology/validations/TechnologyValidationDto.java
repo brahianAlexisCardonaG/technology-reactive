@@ -13,24 +13,14 @@ import java.util.Set;
 @Component
 public class TechnologyValidationDto {
 
-    public Mono<TechnologyDto> validateFieldNotNullOrBlank(TechnologyDto dto) {
+    public Mono<Void> validateFieldNotNullOrBlank(TechnologyDto dto) {
         if (dto.getDescription() == null || dto.getName() == null ) {
             return Mono.error(new BusinessException(TechnicalMessage.INVALID_PARAMETERS));
         }
-        return Mono.just(dto);
+        return Mono.empty();
     }
 
-    public Mono<TechnologyDto> validateLengthWords(TechnologyDto dto) {
-        if (dto.getName().length() > 50) {
-            return Mono.error(new BusinessException(TechnicalMessage.NAME_TOO_LONG));
-        }
-        if (dto.getDescription().length() > 90) {
-            return Mono.error(new BusinessException(TechnicalMessage.DESCRIPTION_TOO_LONG));
-        }
-        return Mono.just(dto);
-    }
-
-    public Mono<List<TechnologyDto>> validateNoDuplicateNames(List<TechnologyDto> dtoList) {
+    public Mono<Void> validateNoDuplicateNames(List<TechnologyDto> dtoList) {
         Set<String> names = new HashSet<>();
         List<String> duplicatedNames = dtoList.stream()
                 .map(TechnologyDto::getName)
@@ -41,7 +31,7 @@ public class TechnologyValidationDto {
             return Mono.error(new BusinessException(TechnicalMessage.DUPLICATE_NAMES_TECHNOLOGIES));
         }
 
-        return Mono.just(dtoList);
+        return Mono.empty();
     }
 
 }

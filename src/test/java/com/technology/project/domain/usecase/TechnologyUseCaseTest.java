@@ -12,7 +12,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.junit.jupiter.MockitoExtension;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -43,23 +42,25 @@ public class TechnologyUseCaseTest {
     void save_shouldSaveUniqueTechnologies() {
         Technology tech = new Technology(1L, "Java", "Backend");
 
-        when(persistencePort.findByName("Java")).thenReturn(Mono.just(false));
-        when(persistencePort.save(any())).thenReturn(Flux.just(tech));
+        when(validator.validateLengthWords(any(Technology.class)))
+                .thenReturn(Mono.empty());
+        when(persistencePort.existByName("Java")).thenReturn(Mono.just(false));
+        when(persistencePort.save(any())).thenReturn(Mono.just(tech));
 
-        StepVerifier.create(useCase.save(Flux.just(tech)))
+        StepVerifier.create(useCase.save(tech))
                 .expectNext(tech)
                 .verifyComplete();
 
-        verify(persistencePort).save(any());
+        verify(persistencePort).save(any(Technology.class));
     }
 
     @Test
     void save_shouldThrowIfTechnologyExists() {
         Technology tech = new Technology(1L, "Java", "Backend");
 
-        when(persistencePort.findByName("Java")).thenReturn(Mono.just(true));
+        when(persistencePort.existByName("Java")).thenReturn(Mono.just(true));
 
-        StepVerifier.create(useCase.save(Flux.just(tech)))
+        StepVerifier.create(useCase.save(tech))
                 .expectErrorMatches(error -> error instanceof BusinessException &&
                         ((BusinessException) error).getTechnicalMessage() == TechnicalMessage.TECHNOLOGY_ALREADY_EXISTS)
                 .verify();
@@ -127,10 +128,10 @@ public class TechnologyUseCaseTest {
         List<Long> ids = List.of(1L, 2L);
         Technology tech = new Technology(1L, "Java", "Backend");
 
-        when(persistencePort.findByIds(ids)).thenReturn(Flux.just(tech));
+        when(persistencePort.findByIds(ids)).thenReturn(Mono.just(List.of(tech)));
 
         StepVerifier.create(useCase.getTechnologiesByIds(ids))
-                .expectNext(tech)
+                .expectNextMatches(list -> list.size() == 1 && list.get(0).equals(tech))
                 .verifyComplete();
     }
 
@@ -138,20 +139,23 @@ public class TechnologyUseCaseTest {
     void getTechnologiesByIds_shouldReturnDefaultIfEmpty() {
         List<Long> ids = List.of(1L);
 
-        when(persistencePort.findByIds(ids)).thenReturn(Flux.empty());
+        when(persistencePort.findByIds(ids)).thenReturn(Mono.empty());
 
         StepVerifier.create(useCase.getTechnologiesByIds(ids))
-                .expectNext(new Technology()) // defaultIfEmpty
-                .verifyComplete();
+                .expectErrorMatches(error -> error instanceof BusinessException &&
+                        ((BusinessException) error).getTechnicalMessage() == TechnicalMessage.TECHNOLOGY_NOT_EXISTS)
+                .verify();
     }
 
     @Test
     void deleteCapabilityTechnologies_shouldDeleteSuccessfully() {
         List<Long> technologyIds = List.of(1L, 2L);
-        when(persistencePort.findCapabilitiesByTechnologiesIds(technologyIds))
-                .thenReturn(Flux.just(100L));
 
-        // Configurar las llamadas de borrado para que se completen sin error
+        // Se simula la búsqueda de capacidades relacionadas: se retorna una única capacidad
+        when(persistencePort.findCapabilitiesByTechnologiesIds(technologyIds))
+                .thenReturn(Mono.just(List.of(100L)));
+
+        // Se configuran las operaciones de borrado para completar sin error
         when(persistencePort.deleteCapabilitiesTechnologies(technologyIds)).thenReturn(Mono.empty());
         when(persistencePort.deleteTechnologies(technologyIds)).thenReturn(Mono.empty());
 
@@ -160,7 +164,6 @@ public class TechnologyUseCaseTest {
         StepVerifier.create(result)
                 .verifyComplete();
 
-        // Verificar que se haya llamado a los métodos de borrado correspondientes.
         verify(persistencePort).deleteCapabilitiesTechnologies(technologyIds);
         verify(persistencePort).deleteTechnologies(technologyIds);
     }
@@ -169,17 +172,18 @@ public class TechnologyUseCaseTest {
     void deleteCapabilityTechnologies_shouldThrowErrorIfMultipleCapabilitiesFound() {
         List<Long> technologyIds = List.of(1L, 2L);
 
+        // Se retorna más de una capacidad para provocar la excepción
         when(persistencePort.findCapabilitiesByTechnologiesIds(technologyIds))
-                .thenReturn(Flux.just(100L, 200L));
+                .thenReturn(Mono.just(List.of(100L, 200L)));
 
         Mono<Void> result = useCase.deleteCapabilityTechnologies(technologyIds);
 
         StepVerifier.create(result)
                 .expectErrorMatches(error -> error instanceof BusinessException &&
-                        ((BusinessException) error).getTechnicalMessage() == TechnicalMessage.CAPABILITIES_TECHNOLOGIES_MORE_ONE_RELATE)
+                        ((BusinessException) error).getTechnicalMessage() ==
+                                TechnicalMessage.CAPABILITIES_TECHNOLOGIES_MORE_ONE_RELATE)
                 .verify();
 
-        // Verificar, en caso de error, no se invoquen los métodos de borrado.
         verify(persistencePort, never()).deleteCapabilitiesTechnologies(any());
         verify(persistencePort, never()).deleteTechnologies(any());
     }

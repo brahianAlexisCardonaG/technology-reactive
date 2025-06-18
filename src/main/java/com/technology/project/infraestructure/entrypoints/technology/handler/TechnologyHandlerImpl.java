@@ -41,16 +41,17 @@ public class TechnologyHandlerImpl {
 
         Mono<ServerResponse> response = request.bodyToFlux(TechnologyDto.class)
                 .collectList()
-                .flatMap(technologyValidationDto::validateNoDuplicateNames)
-                .flatMapMany(Flux::fromIterable)
-                .flatMap(technologyValidationDto::validateFieldNotNullOrBlank)
-                .flatMap(technologyValidationDto::validateLengthWords)
+                .flatMapMany(dtoList ->
+                        technologyValidationDto.validateNoDuplicateNames(dtoList)
+                                .thenMany(Flux.fromIterable(dtoList))
+                ).flatMap(dto ->
+                        technologyValidationDto.validateFieldNotNullOrBlank(dto)
+                                .thenReturn(dto)
+                )
                 .map(technologyMapper::toTechnology)
-                .transform(technologyServicePort::save)
+                .flatMap(technologyServicePort::save) // Guarda uno por uno
+                .map(technologyMapperResponse::toTechnologyResponse)
                 .collectList()
-                .map(savedTechList -> savedTechList.stream()
-                        .map(technologyMapperResponse::toTechnologyResponse)
-                        .collect(Collectors.toList()))
                 .flatMap(savedTechList ->
                         ServerResponse.status(HttpStatus.CREATED)
                                 .contentType(MediaType.APPLICATION_JSON)
@@ -78,8 +79,8 @@ public class TechnologyHandlerImpl {
                 .toList();
 
         Mono<ServerResponse> response = technologyServicePort.getTechnologiesByIds(technologyIds)
-                .map(technologyMapperResponse::toTechnologyResponse)
-                .collectList()
+                .map(listTech -> listTech.stream()
+                        .map(technologyMapperResponse::toTechnologyResponse).collect(Collectors.toList()))
                 .flatMap(techList -> ServerResponse.ok()
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(ApiResponseBase.builder()
